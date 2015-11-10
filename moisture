@@ -1,0 +1,248 @@
+#!/usr/bin/python2
+
+import sys
+import random
+from string import join
+
+__VERSION__ = "0.0.1"
+
+STACK = []
+LABELS = {}
+SLOOPS = []
+ELOOPS = []
+depth = 0
+ignore = 0
+
+# -------------------------- #
+# Simple stack manipulations #
+# -------------------------- #
+def push(value):
+	"""Add value to stack"""
+	if type(value) is int:
+		STACK.append(value)
+	else: # value is a character
+		STACK.append(int(ord(value)))
+
+def pop():
+	"""Pop value"""
+	return STACK.pop()
+
+def dup():
+	"""Push another copy of the top value to the stack"""
+	if STACK == []:
+		print("Aaaaaaaaaah! Can't dup an empty stack!")
+		sys.exit(1)
+	else:
+		push(STACK[-1])
+
+def rand():
+	"""Push a random number to the stack"""
+	push(random.randint(0, 99))
+
+def rev():
+	STACK.reverse()
+
+def raise_():
+	STACK.insert(0, pop())
+
+def lower():
+	STACK.insert(len(STACK), STACK.pop(0))
+
+# --------- #
+# Operators #
+# --------- #
+def add():
+	STACK[-2] += STACK[-1]
+	pop()
+
+def sub():
+	STACK[-2] -= STACK[-1]
+	pop()
+
+# --- #
+# I/O #
+# --- #
+def nputchr():
+	sys.stdout.write( chr( pop() ) + "\n")
+
+def nput():
+	sys.stdout.write( str(pop()) + "\n")
+
+def putchr():
+	"""Put ascii value as text"""
+	sys.stdout.write( chr( pop() ) )
+
+def put():
+	"""Put number as number"""
+	sys.stdout.write( str( pop() ) )
+
+def grab(question):
+	"""Get user input"""
+	a = raw_input("".join(question) + " ")
+	for c in a:
+		push(c)
+
+# ----- #
+# Logic #
+# ----- #
+def skip(boolean, index):
+	if boolean == False:
+		return index + 1
+	else:
+		return index
+
+def check():
+	if STACK == []:
+		return False
+	else:
+		return True
+
+##-=================================-##
+#| Main interpreter code starts here |#
+##-=================================-##
+
+def interpret(line, index):
+	"""Interprets a line of code."""
+	global depth, ignore, SLOOPS, ELOOPS, STACK
+	lineindex = 0
+	rindex = index
+	
+	if line == [] or line[0] == "":
+		return rindex
+
+	elif line[0] == "[":
+		depth += 1
+	elif line[0] == "]":
+		if STACK == [] or STACK[-1] == 0:
+			ignore += 1
+			depth -= 1
+		else:
+			rindex = SLOOPS[depth + ignore - 1] - 1 # First one is because of python's index offset, second one to avoid unwanted incremention
+			depth -= 1
+			return rindex
+
+	if line[0] == "lbl" or line[0].startswith("//"): # Silently ignore labels and comments
+		return rindex
+		
+	while lineindex < len(line):
+		if line[lineindex] == "end":
+			print
+			sys.exit(0)
+
+		elif line[lineindex] == "goto":
+			index = LABELS[line[1]] - 1 # Minus one because it will be incremented in the loop
+		elif line[lineindex] == "[" or line[lineindex] ==  "]": # Loops get handled first
+			pass
+
+		# Stack operations
+		elif line[lineindex] == "pop":
+			pop()
+		elif line[lineindex] == "dup":
+			dup()
+		elif line[lineindex] == "rand":
+			rand()
+		elif line[lineindex] == "rev":
+			rev()
+		elif line[lineindex] == "raise":
+			raise_()
+		elif line[lineindex] == "lower":
+			lower()
+		
+		# Operations
+		elif line[lineindex] == "add" or line[lineindex] == "+":
+			add()
+		elif line[lineindex] == "sub" or line[lineindex] == "-":
+			sub()
+		
+		# I/O
+		elif line[lineindex] == "nputchr":
+			nputchr()
+		elif line[lineindex] == "nput":
+			nput()
+		elif line[lineindex] == "putchr":
+			putchr()
+		elif line[lineindex] == "put":
+			put()
+		elif line[lineindex] == "grab":
+			grab(line[lineindex + 1:])
+			break
+		
+		# Logic
+		elif line[lineindex] == "check":
+			rindex = skip(check(), index)
+
+		# Etc.
+		elif line[lineindex] == "debug":
+			sys.stdout.write(str(STACK))
+		else:
+			try:
+				int(line[lineindex])
+			except:
+				if line[lineindex].startswith("\"") or line[lineindex].startswith("r\""):
+					word = line[lineindex][1:] if line[lineindex].startswith("\"") else line[lineindex][2:][::-1]
+					for char in word:
+						push(char)
+				else:
+					print("Unknown instruction \"%s\"! Aaaaaaaaaah!" % line[lineindex])
+					sys.exit(1)
+			else:
+				push( int( line[lineindex]))
+		
+		lineindex += 1
+	
+	return rindex
+
+def usage():
+	print("Usage:\ttowel [file]\n\ttowel --repl")
+	sys.exit(2)
+
+def repl(): # TODO
+	print("Moisture Towel REPL version %s" % __VERSION__)
+	print("Type \"end\" to exit the REPL.")
+	while True:
+		code = raw_input(">>> ").split(" ")
+		if code[0] == "help":
+			help()
+		else:
+			interpret(code, 0)
+			if "put" in code or "putchr" in code or "debug" in code:
+				print
+def help(): #REPL-exclusive command
+	print("Welcome to Moisture, the Towel interpreter! If you came here by accident, simple type \"end\" to get out, and we'll act like nothing ever happened.")
+	print("If you want to learn about Towel, check out the tutorial and documentation at TODO")
+
+if __name__ == "__main__":
+	try:
+		code = open(sys.argv[1]).read().split("\n")
+	except IndexError:
+		usage()
+	except IOError:
+		if sys.argv[1] == "--repl" or sys.argv[1] == "-r":
+			repl()
+		else:
+			usage()
+	else:
+		index = 0
+		while index < len(code): # "Preprocessor": get labels
+			line = code[index].split()
+			try:
+				line[0]
+			except:
+				pass
+			else:
+				if line[0] == "lbl":
+					LABELS[str(line[1])] = index
+				elif line[0] == "[": # Start of while loop
+					SLOOPS.append(index)
+				elif line[0] == "]": # Start of while loop
+					ELOOPS.append(index)
+			index += 1
+
+		index = 0
+		while type(index) is int:
+			index = interpret(code[index].split(), index)
+			try:
+				index += 1
+			except:
+				pass # index is False; execution will end
+		sys.exit(0)
