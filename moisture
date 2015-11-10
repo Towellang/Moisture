@@ -120,6 +120,8 @@ def interpret(line, index):
 			rindex = SLOOPS[depth + ignore - 1] - 1 # First one is because of python's index offset, second one to avoid unwanted incremention
 			depth -= 1
 			return rindex
+	elif line[0].startswith("#!"):
+		return rindex
 
 	if line[0] == "lbl" or line[0].startswith("//"): # Silently ignore labels and comments
 		return rindex
@@ -131,7 +133,7 @@ def interpret(line, index):
 
 		elif line[lineindex] == "goto":
 			index = LABELS[line[1]] - 1 # Minus one because it will be incremented in the loop
-		elif line[lineindex] == "[" or line[lineindex] ==  "]": # Loops get handled first
+		elif line[lineindex] == "[" or line[lineindex] ==  "]":
 			pass
 
 		# Stack operations
