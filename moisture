@@ -7,7 +7,6 @@ from string import join
 __VERSION__ = "0.0.1"
 
 STACK = []
-LABELS = {}
 SLOOPS = []
 ELOOPS = []
 depth = 0
@@ -123,7 +122,7 @@ def interpret(line, index):
 	elif line[0].startswith("#!"):
 		return rindex
 
-	if line[0] == "lbl" or line[0].startswith("//"): # Silently ignore labels and comments
+	if line[0].startswith("//"): # Silently ignore comments
 		return rindex
 		
 	while lineindex < len(line):
@@ -131,13 +130,11 @@ def interpret(line, index):
 			print
 			sys.exit(0)
 
-		elif line[lineindex] == "goto":
-			index = LABELS[line[1]] - 1 # Minus one because it will be incremented in the loop
 		elif line[lineindex] == "[" or line[lineindex] ==  "]":
 			pass
 
 		# Stack operations
-		elif line[lineindex] == "pop":
+		elif line[lineindex] == "drop":
 			pop()
 		elif line[lineindex] == "dup":
 			dup()
@@ -174,7 +171,7 @@ def interpret(line, index):
 			rindex = skip(check(), index)
 
 		# Etc.
-		elif line[lineindex] == "debug":
+		elif line[lineindex] == "dump":
 			sys.stdout.write(str(STACK))
 		else:
 			try:
@@ -194,20 +191,38 @@ def interpret(line, index):
 	
 	return rindex
 
+def prepare():
+	index = 0
+	while index < len(code): # "Preprocessor": get loops
+		line = code[index].split()
+		try:
+			line[0]
+		except:
+			pass
+		else:
+			if line[0] == "[": # Start of while loop
+				SLOOPS.append(index)
+			elif line[0] == "]": # Start of while loop
+				ELOOPS.append(index)
+		index += 1
+	
 def usage():
-	print("Usage:\ttowel [file]\n\ttowel --repl")
+	print("Usage:\ttowel [file]\n\ttowel")
 	sys.exit(2)
 
 def repl(): # TODO
 	print("Moisture Towel REPL version %s" % __VERSION__)
 	print("Type \"end\" to exit the REPL.")
+	replcode = []
+	index = 0
 	while True:
 		code = raw_input(">>> ").split(" ")
+		replcode.append(code)
 		if code[0] == "help":
 			help()
 		else:
-			interpret(code, 0)
-			if "put" in code or "putchr" in code or "debug" in code:
+			index = interpret(code, index)
+			if "put" in code or "putchr" in code or "dump" in code:
 				print
 def help(): #REPL-exclusive command
 	print("Welcome to Moisture, the Towel interpreter! If you came here by accident, simple type \"end\" to get out, and we'll act like nothing ever happened.")
@@ -217,28 +232,11 @@ if __name__ == "__main__":
 	try:
 		code = open(sys.argv[1]).read().split("\n")
 	except IndexError:
-		usage()
+		repl()
 	except IOError:
-		if sys.argv[1] == "--repl" or sys.argv[1] == "-r":
-			repl()
-		else:
-			usage()
+		usage()
 	else:
-		index = 0
-		while index < len(code): # "Preprocessor": get labels
-			line = code[index].split()
-			try:
-				line[0]
-			except:
-				pass
-			else:
-				if line[0] == "lbl":
-					LABELS[str(line[1])] = index
-				elif line[0] == "[": # Start of while loop
-					SLOOPS.append(index)
-				elif line[0] == "]": # Start of while loop
-					ELOOPS.append(index)
-			index += 1
+		prepare()
 
 		index = 0
 		while type(index) is int:
